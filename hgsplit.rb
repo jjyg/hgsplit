@@ -10,6 +10,7 @@
 
 require 'optparse'
 require 'digest/md5'
+require 'fileutils'
 
 $subrepo = 'subrepo'
 $flist = []
@@ -52,6 +53,7 @@ def copyfiles
 	$flist.each { |f|
 		rf = File.join($subrepo, f)
 		if File.exist?(f)
+			FileUtils.mkdir_p File.dirname(rf)
 			File.open(rf, 'wb') { |fdw|
 				File.open(f, 'rb') { |fdr|
 					fdw.write fdr.read
@@ -98,4 +100,4 @@ ncommits = 0
 	runsubdir { runhg "commit -u #{log['user'].inspect} -d #{log['date'].inspect} -A -m #{log['summary'].inspect}" }
 }
 
-puts "subdirectory saved to #$subrepo/, saved #{ncommits} changes from #{maxver} total"
+puts "subdirectory saved to #$subrepo/, saved #{ncommits} changes from #{maxver+1} total"
