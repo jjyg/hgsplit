@@ -28,6 +28,7 @@ OptionParser.new { |o|
 	o.on('-i <cid>', '--initial-commit <commitid>', 'start from this commit (linear commit number - 0 == init)') { |o| $opts[:initialcommit] = o.to_i }
 	o.on('-f <cid>', '--final-commit <commitid>', 'end at this commit (linear commit number)') { |o| $opts[:finalcommit] = o.to_i }
 	o.on('-v', '--verbose', 'be verbose') { $VERBOSE = true }
+	o.on('-u <username>', '--user <username>', 'force user for all commits') { |u| $opts[:user] = u }
 	o.on('-l <listfile>', '--list <listfile>', 'file holding a list of files, one per line') { |f|
 		$opts[:flist].concat IO.readlines(f).map { |l| l.chomp }
 	}
@@ -146,7 +147,7 @@ nmax.times { |ver|
 	# retrieve original commit info
 	log = runhg "log -r #{cid}"
 	# replicate commit
-	runsubdir { runhg "commit -u #{log['user'].inspect} -d #{log['date'].inspect} -A -m #{log['summary'].inspect}" }
+	runsubdir { runhg "commit -u #{($opts[:user] || log['user']).inspect} -d #{log['date'].inspect} -A -m #{log['summary'].inspect}" }
 
 	stat = nstat
 }
