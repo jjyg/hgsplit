@@ -108,7 +108,7 @@ end
 def getstats
 	ret = {}
 	listtrackedfiles.each { |f|
-		ret[f] = Digest::MD5.file(f).hexdigest
+		ret[f] = Digest::MD5.file(f).hexdigest rescue next
 	}
 	ret
 end
