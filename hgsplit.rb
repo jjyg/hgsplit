@@ -29,6 +29,7 @@ OptionParser.new { |o|
 	o.on('-f <cid>', '--final-commit <commitid>', 'end at this commit (linear commit number)') { |o| $opts[:finalcommit] = o.to_i }
 	o.on('-v', '--verbose', 'be verbose') { $VERBOSE = true }
 	o.on('-u <username>', '--user <username>', 'force user for all commits') { |u| $opts[:user] = u }
+	o.on('--to-git', 'save the subrepository as a git repo') { $opts[:to_git] = true }
 	o.on('-l <listfile>', '--list <listfile>', 'file holding a list of files, one per line') { |f|
 		$opts[:flist].concat IO.readlines(f).map { |l| l.chomp }
 	}
@@ -83,10 +84,13 @@ def listtrackedfiles
 end
 
 # copy tracked files from repo to subrepo, handles rm'd files
+# returns list of modified files
 def copyfiles(oldstat, newstat)
+	list = []
 	# copy changed files
 	newstat.keys.each { |f|
 		next if newstat[f] == oldstat[f]
+		list << f
 		puts " copy #{f}" if $VERBOSE
 		rf = File.join($opts[:subrepo], f)
 		FileUtils.mkdir_p File.dirname(rf)
@@ -98,9 +102,11 @@ def copyfiles(oldstat, newstat)
 	}
 	# remove old deleted/moved files
 	(oldstat.keys - newstat.keys).each { |f|
+		list << f
 		puts " rm #{f}" if $VERBOSE
 		runsubdir { File.unlink(f) }
 	}
+	list
 end
 
 # stat the tracked files for changes
@@ -117,7 +123,13 @@ end
 runhg "commit -m 'hgsplit'"
 
 # create subrepo
-runsubdir { runhg "init" }
+runsubdir {
+	if $opts[:to_git]
+		`git init`
+	else
+		runhg "init"
+	end
+}
 
 $opts[:initialcommit] ||= 0
 # find maximum incremental changeset number
@@ -143,11 +155,19 @@ nmax.times { |ver|
 
 	ncommits += 1
 	# propagate changes
-	copyfiles(stat, nstat)
+	filelist = copyfiles(stat, nstat)
 	# retrieve original commit info
 	log = runhg "log -r #{cid}"
 	# replicate commit
-	runsubdir { runhg "commit -u #{($opts[:user] || log['user']).inspect} -d #{log['date'].inspect} -A -m #{log['summary'].inspect}" }
+	runsubdir {
+		if $opts[:to_git]
+			# author must be in the form: name <mail@bla>
+			`git add #{filelist.map { |f| f.inspect }.join(' ')}`
+			`git commit --author=#{($opts[:user] || log['user']).inspect} --date #{log['date'].inspect} -m #{log['summary'].inspect}`
+		else
+			runhg "commit -u #{($opts[:user] || log['user']).inspect} -d #{log['date'].inspect} -A -m #{log['summary'].inspect}"
+		end
+	}
 
 	stat = nstat
 }
